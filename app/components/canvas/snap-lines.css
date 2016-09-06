@@ -1,0 +1,5 @@
+.snapLine {
+  position: absolute;
+  pointer-events: none;
+  background-color: rgba(0, 191, 239, 0.5);
+}

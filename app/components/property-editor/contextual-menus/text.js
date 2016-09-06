@@ -1,8 +1,7 @@
 import React, { Component } from "react";
 
 import styles from "../index.css";
-import { autorun } from "mobx";
-import { map, omit, find, merge } from "lodash";
+import { map, omit, find } from "lodash";
 
 import {
   Alignment,
@@ -29,25 +28,9 @@ export default class TextMenu extends Component {
     this.state = { currentElement: null };
   }
 
-  componentDidMount() {
-    autorun(() => {
-      // deep merge necessary to break reference between state and store element style objects
-      const currentElement = merge({}, this.context.store.currentElement);
-
-      window.clearTimeout(this.stateTimeout);
-
-      if (!currentElement) {
-        this.stateTimeout = window.setTimeout(() => {
-          this.setState({ currentElement });
-        }, 400);
-
-        return;
-      }
-
-      if (currentElement.type === ElementTypes.TEXT) {
-        this.setState({ currentElement });
-      }
-    });
+  shouldComponentUpdate() {
+    const { store: { currentElement } } = this.context;
+    return currentElement && currentElement.type === ElementTypes.TEXT;
   }
 
   handleFontFamily = (value, properties) => {
@@ -128,7 +111,7 @@ export default class TextMenu extends Component {
   }
 
   render() {
-    const currentElement = this.state.currentElement ? merge({}, this.state.currentElement) : null;
+    const currentElement = this.context.store.currentElement;
     const { paragraphStyles } = this.context.store;
     const styleProps = currentElement && {
       ...paragraphStyles[currentElement.props.paragraphStyle],
@@ -276,7 +259,7 @@ export default class TextMenu extends Component {
               <div className={styles.subHeading}>
                 Link
               </div>
-              <LinkTo currentElement={this.state.currentElement} />
+              <LinkTo currentElement={currentElement} />
             </div>
           </div>
         )}

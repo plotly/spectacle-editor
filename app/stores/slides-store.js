@@ -6,10 +6,7 @@ import { merge, mergeWith, pick, omit } from "lodash";
 
 import ApiStore from "./api-store";
 import elementMap from "../elements";
-import { getParagraphStyles,
-  getGridLinesObj,
-  getGridLineHashes
-} from "../utils";
+import { getParagraphStyles } from "../utils";
 
 const defaultParagraphStyles = {
   "Heading 1": getParagraphStyles({ fontSize: 26 }),
@@ -112,22 +109,6 @@ export default class SlidesStore {
 
   @computed get currentState() {
     return this.history[this.historyIndex].asMutable({ deep: true });
-  }
-
-  @computed get gridLines() {
-    return getGridLineHashes(
-      getGridLinesObj(
-        // Pass in elements to snap to
-        this.currentSlide.children,
-        // Start with slide edges and slide center lines
-        [0, Math.floor(this.height / 2), this.height],
-        [0, Math.floor(this.width / 2), this.width],
-        this.scale
-      ),
-      // Ignore lines for the current element index
-      // Or if we're dragging a new element, don't ignore any current elements
-      this.isDraggingNewElement ? 100000 : this.currentElementIndex
-    );
   }
 
   constructor(fileStore, slides) {

@@ -17,3 +17,16 @@
   border-right: 1px solid var(--primary-border-color);
   border-left: 1px solid var(--primary-border-color);
 }
+
+.isSelected::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  border: var(--selected-border);
+  pointer-events: none;
+  z-index: 99;
+}

@@ -39,6 +39,7 @@ elements[ElementTypes.TEXT] = {
   defaultWidth: 51,
   defaultHeight: 36,
   defaultText: ["Text"],
+  resizeVertical: false,
   props: {
     paragraphStyle: "Heading 1",
     isQuote: false,
@@ -54,9 +55,9 @@ elements[ElementTypes.IMAGE] = {
   ComponentClass: Image,
   props: {
     src: `data:image/svg+xml;utf8,${imagePlaceholder}`,
-    width: 281,
-    height: 200,
     style: {
+      width: 281,
+      height: 200,
       opacity: 0.2
     }
   },
@@ -65,13 +66,16 @@ elements[ElementTypes.IMAGE] = {
 
 elements[ElementTypes.PLOTLY] = {
   type: ElementTypes.PLOTLY,
-  ComponentClass: (props) => (<iframe {...props} />),
+  ComponentClass: (props) => (<iframe {...props} style={{}} />),
   props: {
     src: "https://plot.ly/~rgerstenberger/0.embed?link=false",
-    width: 450,
-    height: 400,
     frameBorder: 0,
-    scrolling: "no"
+    scrolling: "no",
+    style: {
+      width: 450,
+      height: 400
+    }
+
   },
   children: []
 };
@@ -82,8 +86,10 @@ elements[ElementTypes.PLOTY_PLACEHOLDER_IMAGE] = {
   ComponentClass: Image,
   props: {
     src: plotlyPlaceholder,
-    width: 450,
-    height: 400
+    style: {
+      width: 450,
+      height: 400
+    }
   },
   children: []
 };
@@ -94,8 +100,10 @@ elements[ElementTypes.CODE] = {
   ComponentClass: Image,
   props: {
     src: "http://placehold.it/400x200&text=sliding_yeah",
-    width: 400,
-    height: 200
+    style: {
+      width: 400,
+      height: 200
+    }
   },
   children: []
 };

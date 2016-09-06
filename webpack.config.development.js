@@ -8,7 +8,7 @@ const config = {
 
   debug: true,
 
-  devtool: "cheap-module-eval-source-map",
+  devtool: "source-map",
 
   entry: {
     bundle: [

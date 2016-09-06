@@ -17,8 +17,10 @@ class ElementItem extends Component {
     elementTop: PropTypes.number.isRequired,
     elementWidth: PropTypes.number.isRequired,
     elementHeight: PropTypes.number.isRequired,
-    onIsOverCanvasChange: PropTypes.func.isRequired,
-    onDropElement: PropTypes.func.isRequired,
+    onDragStart: PropTypes.func.isRequired,
+    onDrag: PropTypes.func.isRequired,
+    onDragStop: PropTypes.func.isRequired,
+    onDrop: PropTypes.func.isRequired,
     scale: PropTypes.number
   };
 
@@ -49,7 +51,7 @@ class ElementItem extends Component {
     this.handleMouseMove(ev.touches[0]);
   }
 
-  handleMouseMove = ({ pageX, pageY, offsetX, offsetY, target: { id } }) => {
+  handleMouseMove = ({ pageX, pageY, offsetX, offsetY, clientX, clientY, target: { id } }) => {
     const { mouseStart: [x, y], isOverCanvasPosition } = this.state;
     const newDelta = [pageX - x, pageY - y];
 
@@ -64,11 +66,26 @@ class ElementItem extends Component {
       isUpdating = true;
     }
 
-    this.props.onIsOverCanvasChange(
-      newOverCanvasPosition,
-      this.props.elementType,
-      id === "slide"
-    );
+    const mousePosition = {
+      clientX,
+      clientY
+    };
+
+    if (!newOverCanvasPosition && this.state.isOverCanvasPosition) {
+      this.props.onDragStop();
+    } else if (newOverCanvasPosition && !this.state.isOverCanvasPosition) {
+      this.props.onDragStart(mousePosition, this.props.elementType);
+    }
+
+    if (newOverCanvasPosition) {
+      this.props.onDrag(mousePosition);
+    }
+
+    // this.props.onIsOverCanvasChange(
+    //   newOverCanvasPosition,
+    //   this.props.elementType,
+    //   id === "slide"
+    // );
 
     this.setState({
       delta: newDelta,
@@ -86,6 +103,7 @@ class ElementItem extends Component {
 
   handleMouseDown = (ev) => {
     ev.preventDefault();
+    ev.persist();
 
     const { pageX, pageY } = ev;
 
@@ -121,7 +139,8 @@ class ElementItem extends Component {
 
       this.mouseClickTimeout = null;
 
-      this.props.onDropElement(this.props.elementType);
+      this.props.onDrop(this.props.elementType);
+      this.props.onDragStop();
 
       return;
     }
@@ -139,6 +158,7 @@ class ElementItem extends Component {
       mouseOffset: [0, 0],
       mouseStart: [0, 0],
       canvasOffset: [0, 0],
+      isOverCanvasPosition: null,
       isPressed: false
     };
 
@@ -146,13 +166,13 @@ class ElementItem extends Component {
       // Don't show return animation if dropping the element on the canvas
       state.isUpdating = true;
 
-      this.props.onDropElement(this.props.elementType, [
+      this.props.onDrop(this.props.elementType, [
         this.state.canvasOffset[0],
         this.state.canvasOffset[1]
       ]);
+      this.props.onDragStop();
     }
 
-    this.props.onIsOverCanvasChange(null, null);
     this.context.store.updateElementDraggingState(false);
 
     this.setState(state, () => {

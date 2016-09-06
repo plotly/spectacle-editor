@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import styles from "./updateparagraphstyles.css";
-import { pick } from "lodash";
+import { pick, isEqual } from "lodash";
 
 export default class UpdateParagraphStyles extends Component {
   static contextTypes = {
@@ -29,19 +29,16 @@ export default class UpdateParagraphStyles extends Component {
       return null;
     }
 
-    const filteredStyles = pick(
-      storeElement.props.style,
-      Object.keys(paragraphStyles[currentElement.props.paragraphStyle])
-    );
-
-    const stylesLength = Object.keys(filteredStyles).length;
+    const name = currentElement.props.paragraphStyle;
+    const filtered = pick(storeElement.props.style, Object.keys(paragraphStyles[name]));
+    const equal = isEqual(filtered, paragraphStyles[name]);
 
     return (
       <div
-        onClick={stylesLength && this.handleClick}
+        onClick={!equal && this.handleClick}
         className={
           `${styles.updateHeading}
-           ${(stylesLength ? styles.active : "")}`
+           ${(equal ? "" : styles.active)}`
         }
       >
         Update {currentElement.props.paragraphStyle} Style

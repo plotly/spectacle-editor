@@ -1,32 +1,25 @@
 import React, { Component, PropTypes } from "react";
 import ReactDOM from "react-dom";
-import { Motion, spring } from "react-motion";
-import { omit, defer } from "lodash";
+import { map, omit, pick } from "lodash";
+import { observer } from "mobx-react";
+import classNames from "classnames";
 
-import {
-  SpringSettings,
-  BLACKLIST_CURRENT_ELEMENT_DESELECT
-} from "../../../../constants";
-import { getPointsToSnap, snap } from "../../../../utils";
+import CanvasElement, { CanvasElementPropTypes } from "../../canvas-element";
+
 import styles from "./index.css";
-import ResizeNode from "../../resize-node";
-import TextContentEditor from "./text-content-editor";
-import Arrange from "../arrange";
+import ContentEditable from "./content-editable";
 
+@observer
 export default class TextElement extends Component {
   static propTypes = {
-    elementIndex: PropTypes.number,
+    ...CanvasElementPropTypes,
+    rect: PropTypes.object,
     component: PropTypes.shape({
-      ComponentClass: React.PropTypes.any.isRequired,
       props: PropTypes.object,
-      children: PropTypes.node
-    }),
-    selected: PropTypes.bool,
-    mousePosition: PropTypes.array,
-    scale: PropTypes.number,
-    showGridLine: PropTypes.func,
-    hideGridLine: PropTypes.func
-  };
+      children: PropTypes.node,
+      defaultText: PropTypes.array
+    })
+  }
 
   static contextTypes = {
     store: PropTypes.object
@@ -34,526 +27,213 @@ export default class TextElement extends Component {
 
   constructor(props, context) {
     super(props, context);
-
     this.state = {
-      currentContent: null,
-      isPressed: false,
-      mouseStart: [0, 0],
-      delta: [0, 0]
+      editing: false,
+      htmlContent: this.getHtmlFromProps(props)
     };
   }
 
-  componentDidMount() {
-    defer(() => {
-      this.setState({ // eslint-disable-line react/no-did-mount-set-state
-        width: this.editable.clientWidth,
-        height: this.editable.clientHeight
-      });
-    });
+  componentWillMount() {
+    this.updateHtmlContent(this.props);
   }
 
-  componentWillReceiveProps() {
-    const { isDragging, isResizing } = this.context.store;
-
-    if (!isDragging && !isResizing) {
-      // defer measuring new height and width, otherwise value will be what height was before resize
-      defer(() => {
-        if (this.editable) {
-          this.setState({
-            width: this.editable.clientWidth,
-            height: this.editable.clientHeight
-          });
-        }
-      });
+  componentWillReceiveProps(nextProps) {
+    if (this.state.isEditing) {
+      if (!nextProps.isSelected) {
+        this.stopEditing();
+        this.captureUp = false;
+      }
+    } else {
+      this.updateHtmlContent(nextProps);
     }
   }
 
-  shouldComponentUpdate() {
-    // This is needed because of the way the component is passed down
-    // React isn't re-rendering this when the contextual menu updates the store
-    return true;
+  getHtmlFromProps = (props) => {
+    const listType = props.component.props.listType;
+    this.lastListType = listType;
+    const defaultHtml = this.childrenToHtmlString(listType, props.component.defaultText);
+    if (props.component.children) {
+      const html = this.childrenToHtmlString(listType, props.component.children);
+      return html || defaultHtml;
+    }
+
+    return defaultHtml;
   }
 
-  handleMouseDownResize = (ev) => {
-    ev.stopPropagation();
-    ev.preventDefault();
-
-    this.context.store.updateElementResizeState(true);
-    const { target, pageX } = ev;
-    const isLeftSideDrag = target === this.leftResizeNode;
-    let { width, height } = this.editable.getBoundingClientRect();
+  getSize = () => {
     const componentProps = this.props.component.props;
-    const componentLeft = componentProps.style && componentProps.style.left;
-    const left = componentLeft || 0;
-
-    if (isLeftSideDrag) {
-      this.rightResizeNode.style.visibility = "hidden";
-    } else {
-      this.leftResizeNode.style.visibility = "hidden";
+    let width = componentProps.style.width;
+    if (!width) {
+      width = parseFloat(window.getComputedStyle(this.inputElement).width, 10);
     }
-
-    this.gridLines = this.context.store.gridLines;
-
-    const upscale = 1 / this.props.scale;
-
-    width = width * upscale;
-    height = height * upscale;
-
-    this.setState({
-      isLeftSideDrag,
+    return {
+      height: this.inputElement.clientHeight,
       width,
-      canvasElementWidth: this.currentElementComponent.clientWidth,
-      height,
-      left,
-      resizeLastX: pageX
-    }, () => {
-      window.addEventListener("mousemove", this.handleMouseMoveResize);
-      window.addEventListener("mouseup", this.handleMouseUpResize);
-    });
-  }
-
-  handleMouseMoveResize = (ev) => {
-    ev.preventDefault();
-    const { pageX } = ev;
-    const { isLeftSideDrag, resizeLastX } = this.state;
-    let { left, width, canvasElementWidth } = this.state;
-    const { scale } = this.props;
-    let change;
-    let isSnapped;
-    const upscale = 1 / scale;
-
-    const snapCallback = (line, index) => {
-      if (line === null) {
-        this.props.hideGridLine(true);
-        isSnapped = false;
-
-        return;
-      }
-
-      this.props.showGridLine(line * upscale, true);
-
-      let pointToAlignWithLine;
-
-      if (index === 0) {
-        pointToAlignWithLine = left;
-      }
-
-      if (index === 1) {
-        pointToAlignWithLine = Math.ceil(left + canvasElementWidth / 2);
-      }
-
-      if (index === 2) {
-        pointToAlignWithLine = Math.ceil(left + canvasElementWidth);
-      }
-
-      const distance = pointToAlignWithLine - line * upscale;
-
-      if (Math.abs(distance) < 15) {
-        if (isLeftSideDrag) {
-          left -= distance * upscale;
-          canvasElementWidth += distance * upscale;
-          width += distance * upscale;
-        } else {
-          canvasElementWidth -= (distance * upscale);
-          width -= (distance * upscale);
-        }
-
-        isSnapped = true;
-      }
+      left: componentProps.style.left,
+      top: componentProps.style.top
     };
-
-    snap(
-      this.gridLines.vertical,
-      getPointsToSnap(
-        left * scale,
-        canvasElementWidth * scale,
-        (
-          Math.max(pageX * scale, resizeLastX * scale)
-          -
-          Math.min(pageX * scale, resizeLastX * scale)
-        ) / 2
-      ),
-      snapCallback
-    );
-
-    if (isLeftSideDrag) {
-      change = resizeLastX - pageX;
-      left = isSnapped ? left : left - change * upscale;
-    } else {
-      change = pageX - resizeLastX;
-    }
-
-    const newCanvasElementWidth = isSnapped ?
-      canvasElementWidth
-      :
-      (change * upscale) + canvasElementWidth;
-    const newWidth = isSnapped ? width : change * upscale + width;
-    if (newCanvasElementWidth >= 0) {
-      this.setState({
-        left,
-        width: newWidth,
-        canvasElementWidth: newCanvasElementWidth,
-        resizeLastX: isSnapped ? resizeLastX : pageX
-      });
-    }
   }
 
-  handleMouseUpResize = (ev) => {
-    ev.preventDefault();
-    window.removeEventListener("mousemove", this.handleMouseMoveResize);
-    window.removeEventListener("mouseup", this.handleMouseUpResize);
-
-    this.rightResizeNode.style.visibility = "visible";
-    this.leftResizeNode.style.visibility = "visible";
-    this.props.hideGridLine(true);
-
-    this.context.store.updateElementResizeState(false);
-
-    const { width, left } = this.state;
-    const propStyles = { ...this.props.component.props.style };
-
-    propStyles.width = width;
-    propStyles.whiteSpace = "normal";
-    propStyles.wordBreak = "break-all";
-    propStyles.left = left;
-
-    this.context.store.updateElementProps({ style: propStyles });
+  escapeHtml(str) {
+    const div = document.createElement("div");
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
   }
 
-  handleMouseMove = ({ pageX, pageY, offsetX, offsetY, target: { id } }) => {
-    const {
-      mouseStart: [x, y],
-      mouseOffset: [mouseOffsetX, mouseOffsetY],
-      originalPosition: [originalX, originalY],
-      width,
-      height
-    } = this.state;
-    const upscale = 1 / this.props.scale;
-    const newDelta = [(pageX - x) * upscale, (pageY - y) * upscale];
-
-    // Note: This doesn't handle the case of the mouse being off the slide and part of the element
-    // still on the slide. AKA no gridlines or snapping will occur when mouse is outside of the
-    // slide.
-    if (id === "slide") {
-      const createSnapCallback = (isVertical, length, originalPoint) => (line, index) => {
-        if (line === null) {
-          this.props.hideGridLine(isVertical);
-
-          return;
-        }
-
-        this.props.showGridLine(line * upscale, /* isVertical */ isVertical);
-
-        // Index 0 = starting edge, 1 = middle, 2 = ending edge
-        const offset = originalPoint + (length / 2 * index);
-        // Set either x or y
-        newDelta[isVertical ? 0 : 1] = line * upscale - offset * upscale;
-      };
-
-      snap(
-        this.gridLines.horizontal,
-        getPointsToSnap(offsetY * this.props.scale, height, mouseOffsetY),
-        createSnapCallback(false, height, originalY * this.props.scale)
-      );
-
-      snap(
-        this.gridLines.vertical,
-        getPointsToSnap(offsetX * this.props.scale, width, mouseOffsetX),
-        createSnapCallback(true, width, originalX * this.props.scale)
-      );
-    } else {
-      this.props.hideGridLine(true);
-      this.props.hideGridLine(false);
-    }
-
-    this.setState({
-      delta: newDelta
-    });
-  }
-
-  handleMouseDown = (ev) => {
-    ev.preventDefault();
-
-    if (this.context.store.currentElementIndex === this.props.elementIndex) {
-      this.clickStart = new Date().getTime();
-    }
-
-    this.context.store.setCurrentElementIndex(this.props.elementIndex);
-
-    const { pageX, pageY } = ev;
-    const boundingBox = this.currentElementComponent.getBoundingClientRect();
-    const mouseOffset = [Math.floor(boundingBox.left - pageX), Math.floor(boundingBox.top - pageY)];
-    const originalPosition = [
-      this.props.component.props.style.left,
-      this.props.component.props.style.top
-    ];
-    const { width, height } = boundingBox;
-
-    window.addEventListener("mouseup", this.handleMouseUp);
-
-    // Do this preemptively so that dragging doesn't take the performance hit
-    this.gridLines = this.context.store.gridLines;
-
-    // Only do drag if we hold the mouse down for a bit
-    this.mouseClickTimeout = setTimeout(() => {
-      this.clickStart = null;
-      this.mouseClickTimeout = null;
-
-      this.context.store.updateElementDraggingState(true, true);
-
-      // Make the cursor dragging everywhere
-      document.body.style.cursor = "-webkit-grabbing";
-
-      // TODO: handle elements that aren't absolutely positioned?
-      this.setState({
-        delta: [0, 0],
-        mouseStart: [pageX, pageY],
-        isPressed: true,
-        mouseOffset,
-        originalPosition,
-        width,
-        height
-      });
-
-      window.addEventListener("mousemove", this.handleMouseMove);
-    }, 150);
-  }
-
-  handleMouseUp = (ev) => {
-    const timeSinceMouseDown = new Date().getTime() - this.clickStart;
-
-    clearTimeout(this.mouseClickTimeout);
-
-    // while loop is necessary because the mouseup was preempting the click event on the
-    // arrange buttons and was not firing on them. This ensures that editing mode only
-    // occurs when the mouseup happens on the editor or one of its children.
-    let el = ev.target;
-
-    while (el) {
-      if (el === this.editable) {
-        break;
-      }
-
-      el = el.parentNode;
-    }
-
-    if (el && this.clickStart && timeSinceMouseDown <= 150) {
-      window.removeEventListener("mouseup", this.handleMouseUp);
-
-      this.clickStart = null;
-      this.setState({ editing: true });
-
-      return;
-    }
-
-    window.removeEventListener("mousemove", this.handleMouseMove);
-    window.removeEventListener("mouseup", this.handleMouseUp);
-
-    // Reset the cursor dragging to auto
-    document.body.style.cursor = "auto";
-
-    this.props.hideGridLine(false);
-    this.props.hideGridLine(true);
-
-    this.context.store.updateElementDraggingState(false);
-    this.context.store.updateElementProps({
-      style: {
-        left: this.state.delta[0] + this.props.component.props.style.left,
-        top: this.state.delta[1] + this.props.component.props.style.top
-      }
-    });
-
-    this.setState({
-      delta: [0, 0],
-      mouseStart: [0, 0],
-      isPressed: false
-    });
+  childrenToHtmlString = (listType, children) => {
+    const tag = listType ? "li" : "div";
+    return map(children, (line) => (
+      `<${tag}>${this.escapeHtml(line).replace(/\n/g, "<br>") || "<br>"}</${tag}>`)
+    ).join("");
   }
 
   stopEditing = () => {
-    if (this.currentElementComponent) {
-      this.setState({
-        editing: false,
-        width: this.currentElementComponent.clientWidth,
-        reRender: true
-      });
+    this.setState({ isEditing: false });
+  }
 
-      // this defer is necessary to force an entire re-render of the text editor
-      // because contentEditable creates new elements outside of react's knowledge.
-      // This will unmount the editor and remount it with the updated children incorporated
-      // into the virtual DOM from the store.
-      defer(() => {
-        this.setState({ reRender: false });
+  startEditing = (e) => {
+    // Keep track of current slide and element in case we're deselected before we persist changes
+    this.currentSlideIndex = this.context.store.currentSlideIndex;
+    this.currentElementIndex = this.context.store.currentElementIndex;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    let { htmlContent } = this.state;
+    const { component } = this.props;
+    const defaultText = this.childrenToHtmlString(component.props.listType, component.defaultText);
+    if (htmlContent === defaultText) {
+      htmlContent = "";
+    }
+    this.setState({ isEditing: true, htmlContent }, () => {
+      this.inputElement.focus();
+      if (htmlContent !== "") {
+        const range = document.caretRangeFromPoint(clientX, clientY);
+        window.getSelection().collapse(range.startContainer, range.startOffset);
+      }
+    });
+  }
+
+  persistChanges = () => {
+    this.context.store.updateChildren(
+      this.domToChildren(this.inputElement),
+      this.currentSlideIndex,
+      this.currentElementIndex
+    );
+
+    if (!this.state.htmlContent) {
+      const { component } = this.props;
+      this.setState({
+        htmlContent: this.childrenToHtmlString(component.props.listType,
+                                               component.defaultText)
       });
     }
   }
 
+  handleMouseDown = (e) => {
+    if (this.props.isSelected && !this.state.isEditing) {
+      this.captureUp = true;
+    }
+    if (this.state.isEditing) {
+      e.stopPropagation();
+    }
+  }
+
+  handleMouseUp = (e) => {
+    if (this.captureUp && this.props.isSelected &&
+        !this.props.isDragging && !this.state.isEditing) {
+      this.startEditing(e);
+    }
+    this.captureUp = false;
+  }
+
+  handleBlur = () => {
+    this.stopEditing();
+    this.persistChanges();
+  }
+
+  handleChange = (html) => {
+    this.setState({ htmlContent: html });
+  }
+
+  handleKeyDown = (e) => {
+    const superKey = process.platform === "darwin" ? e.metaKey : e.ctrlKey;
+    // undo super+z, stop propagation so as not to trigger global undo
+    if (superKey && e.which === 90 && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.execCommand("undo");
+    }
+
+    // undo super+shift+z, stop propagation so as not to trigger global redo
+    if (superKey && e.which === 90 && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.execCommand("redo");
+    }
+
+    // escape will finalze edit, trigger blur
+    if (e.which === 27) {
+      e.preventDefault();
+      this.inputElement.blur();
+      this.handleBlur();
+    }
+  }
+
+  // return an array of string lines, with inner <br>s converted to \n
+  domToChildren = (root) => (
+     map(root.childNodes, (child) => child.innerText || child.textContent)
+  )
+
+  updateHtmlContent = (props) => {
+    this.setState({
+      htmlContent: this.getHtmlFromProps(props)
+    });
+  }
+
   render() {
-    const {
-      elementIndex,
-      selected,
-      component: { defaultText, props, children },
-      mousePosition,
-      scale
-    } = this.props;
+    const componentProps = this.props.component.props;
 
-    const {
-      delta: [x, y],
-      editing,
-      isPressed,
-      width,
-      left
-    } = this.state;
-
-    const { isResizing, isDragging, paragraphStyles } = this.context.store;
-
-    if (isResizing) {
-      this.currentElementComponent.style.cursor = "ew-resize";
-    } else if (this.currentElementComponent) {
-      this.currentElementComponent.style.cursor = "move";
+    let tagName = "div";
+    if (componentProps.listType === "ordered") {
+      tagName = "ol";
+    } else if (componentProps.listType === "unordered") {
+      tagName = "ul";
     }
 
-    const currentlySelected = selected || elementIndex === this.context.store.currentElementIndex;
-    const extraClasses = currentlySelected ? ` ${styles.selected}` : "";
+    const classes = classNames({
+      [styles.content]: true,
+      [styles.quote]: componentProps.isQuote
+    });
 
-    const wrapperStyle = {};
-    const motionStyles = {};
-    let elementStyle = props.style ? { ...props.style } : {};
-
-    if (isDragging) {
-      wrapperStyle.pointerEvents = "none";
-    }
-
-    if (mousePosition || props.style && props.style.position === "absolute") {
-      wrapperStyle.position = "absolute";
-
-      const mouseX = mousePosition && mousePosition[0] ? mousePosition[0] : null;
-
-      motionStyles.left = spring(
-        mouseX && mouseX || props.style.left || 0,
-        SpringSettings.DRAG
-      );
-
-      const mouseY = mousePosition && mousePosition[1] ? mousePosition[1] : null;
-
-      motionStyles.top = spring(
-        mouseY && mouseY || props.style.top || 0,
-        SpringSettings.DRAG
-      );
-
-      motionStyles.width = spring((width && width || 0), SpringSettings.RESIZE);
-
-      if (mousePosition) {
-        wrapperStyle.transform = `scale(${scale})`;
-        wrapperStyle.transformOrigin = "top left";
-        wrapperStyle.whiteSpace = "nowrap";
-      }
-    }
-
-    elementStyle = {
-      ...paragraphStyles[props.paragraphStyle],
-      ...elementStyle,
-      position: "relative",
-      left: 0,
-      top: 0
-    };
-
-    if (this.props.component.props.style.width === undefined && currentlySelected && isResizing) {
-      elementStyle.whiteSpace = "normal";
-      elementStyle.wordBreak = "break-all";
-    }
-
-    if (isPressed) {
-      motionStyles.left =
-        spring((props.style && props.style.left || 0) + x, SpringSettings.DRAG);
-      motionStyles.top =
-        spring((props.style && props.style.top || 0) + y, SpringSettings.DRAG);
-    }
-
-    if (isResizing && currentlySelected) {
-      const componentStylesLeft = props.style && props.style.left || 0;
-
-      motionStyles.left = spring(
-        left === undefined ? componentStylesLeft : left,
-        SpringSettings.RESIZE
-      );
-      motionStyles.width = spring(width, SpringSettings.RESIZE);
-    }
-
-    const paragraphClass = this.props.component.props.isQuote ? styles.quote : "";
+    let width = componentProps.style.width ? componentProps.style.width : "auto";
+    width = this.props.rect ? this.props.rect.width : width;
 
     return (
-        <Motion
-          style={motionStyles}
-        >
-          {computedStyles => {
-            const computedDragStyles = omit(computedStyles, "width");
-            let computedResizeStyles = omit(computedStyles, "top", "left");
-
-            if (!isResizing || !currentlySelected) {
-              computedResizeStyles = {};
-            }
-
-            return (
-              <div
-                className={
-                  `${styles.canvasElement}
-                   ${extraClasses}
-                   ${BLACKLIST_CURRENT_ELEMENT_DESELECT}`
-                }
-                ref={component => {this.currentElementComponent = component;}}
-                style={{ ...wrapperStyle, ...computedDragStyles }}
-                onMouseDown={!editing && this.handleMouseDown}
-              >
-                {currentlySelected && !editing &&
-                  <ResizeNode
-                    ref={component => {this.leftResizeNode = ReactDOM.findDOMNode(component);}}
-                    alignLeft
-                    scale={scale}
-                    handleMouseDownResize={this.handleMouseDownResize}
-                    component={this.props.component}
-                  />
-                }
-                {currentlySelected && !isResizing && !isDragging && !editing &&
-                  <Arrange
-                    scale={scale}
-                    width={
-                      this.currentElementComponent &&
-                      this.currentElementComponent.clientWidth
-                    }
-                    height={
-                      this.currentElementComponent &&
-                      this.currentElementComponent.clientHeight
-                    }
-                  />
-                }
-                {!this.state.reRender &&
-                  <TextContentEditor
-                    ref={component => {
-                      this.editable = ReactDOM.findDOMNode(component);
-                    }}
-                    currentlySelected={currentlySelected}
-                    stopEditing={this.stopEditing}
-                    classNames={{ ...styles, paragraph: paragraphClass }}
-                    isEditing={editing}
-                    placeholderText={defaultText}
-                    componentProps={{ ...props }}
-                    style={{ ...elementStyle, ...computedResizeStyles, zIndex: elementIndex }}
-                    children={children}
-                  />
-                }
-                {currentlySelected && !editing &&
-                  <ResizeNode
-                    ref={component => {this.rightResizeNode = ReactDOM.findDOMNode(component);}}
-                    alignRight
-                    scale={scale}
-                    handleMouseDownResize={this.handleMouseDownResize}
-                    component={this.props.component}
-                  />
-                }
-              </div>
-          );}}
-        </Motion>
+      <CanvasElement
+        {...pick(this.props, Object.keys(CanvasElementPropTypes))}
+        resizeHorizontal={this.props.resizeHorizontal && !this.state.isEditing}
+        resizeVertical={false}
+        canArrange={this.props.canArrange && !this.state.isEditing}
+        getSize={this.getSize}
+      >
+        <ContentEditable
+          style={{
+            ...this.context.store.paragraphStyles[componentProps.paragraphStyle],
+            ...omit(componentProps.style, "position", "left", "top", "height"),
+            width
+          }}
+          className={classes}
+          tagName={tagName}
+          ref={el => { this.inputElement = ReactDOM.findDOMNode(el); }}
+          onChange={this.handleChange}
+          onKeyDown={this.handleKeyDown}
+          onMouseUp={this.handleMouseUp}
+          onMouseDown={this.handleMouseDown}
+          onBlur={this.handleBlur}
+          html={this.state.htmlContent}
+          disabled={!this.state.isEditing}
+        />
+      </CanvasElement>
     );
   }
 }

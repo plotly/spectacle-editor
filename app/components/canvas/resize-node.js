@@ -5,6 +5,8 @@ import styles from "./resize-node.css";
 
 export default class ResizeNode extends Component {
   static propTypes = {
+    mode: PropTypes.string,
+    activeMode: PropTypes.string,
     alignLeft: PropTypes.bool,
     alignTop: PropTypes.bool,
     alignBottom: PropTypes.bool,
@@ -13,9 +15,17 @@ export default class ResizeNode extends Component {
     cornerTopRight: PropTypes.bool,
     cornerBottomLeft: PropTypes.bool,
     cornerBottomRight: PropTypes.bool,
-    handleMouseDownResize: PropTypes.func,
-    handleTouchResize: PropTypes.func,
+    onMouseDownResize: PropTypes.func,
+    onTouchResize: PropTypes.func,
     scale: PropTypes.number
+  }
+
+  handleMouseDown = (e) => {
+    this.props.onMouseDownResize(e, this.props.mode);
+  }
+
+  handleTouchStart = (e) => {
+    this.props.onTouchResize(e, this.props.mode);
   }
 
   renderCornerIcon(props) {
@@ -56,14 +66,16 @@ export default class ResizeNode extends Component {
     ].join(" ");
 
     return (
-      <div
-        style={{ transform: `scale(${1 / this.props.scale})` }}
-        className={resolvedClassNames}
-        onMouseDown={this.props.handleMouseDownResize}
-        onTouchStart={this.props.handleTouchResize}
-      >
-        {this.renderCornerIcon(this.props)}
-      </div>
+      !this.props.activeMode || this.props.activeMode === this.props.mode ?
+        <div
+          style={{ transform: `scale(${1 / this.props.scale})` }}
+          className={resolvedClassNames}
+          onMouseDown={this.handleMouseDown}
+          onTouchStart={this.handleTouchStart}
+        >
+          {this.renderCornerIcon(this.props)}
+        </div>
+      : null
     );
   }
 }

@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { autorun } from "mobx";
+import { observer } from "mobx-react";
 
 import { ElementTypes } from "../../../constants";
 import elements from "../../../elements";
@@ -39,6 +39,7 @@ const normalizeUrl = (url) => {
   return `https://${urlWithEmbedAndQuery}`;
 };
 
+@observer
 export default class PlotlyMenu extends Component {
   static contextTypes = {
     store: React.PropTypes.object
@@ -48,33 +49,18 @@ export default class PlotlyMenu extends Component {
     super(props);
 
     this.state = {
-      currentElement: null,
-      src: null
+      src: undefined
     };
   }
 
-  componentDidMount() {
-    autorun(() => {
-      const { currentElement } = this.context.store;
-
-      window.clearTimeout(this.stateTimeout);
-
-      if (!currentElement) {
-        this.stateTimeout = window.setTimeout(() => {
-          this.setState({ currentElement });
-        }, 400);
-
-        return;
-      }
-
-      if (currentElement.type === ElementTypes.PLOTLY) {
-        this.setState({ currentElement });
-      }
-    });
+  shouldComponentUpdate() {
+    const { store: { currentElement } } = this.context;
+    return currentElement && currentElement.type === ElementTypes.PLOTLY;
   }
 
   componentWillUnmount() {
     window.removeEventListener("click", this.handleClick);
+    this.persistSource();
   }
 
   onInputKeyPress = (ev) => {
@@ -100,14 +86,25 @@ export default class PlotlyMenu extends Component {
     if (!value) {
       return;
     }
-
-    this.context.store.updateElementProps(
-      { src: normalizeUrl(value) },
-      this.currentSlideIndex,
-      this.currentElementIndex
-    );
-
+    this.persistSource(value);
     this.setState({ src: null });
+  }
+
+  persistSource = (value) => {
+    const nextValue = value || this.state.src;
+
+    if (!nextValue) {
+      return;
+    }
+
+    if (typeof this.currentSlideIndex !== "undefined" &&
+        typeof this.currentElementIndex !== "undefined") {
+      this.context.store.updateElementProps(
+        { src: normalizeUrl(nextValue) },
+        this.currentSlideIndex,
+        this.currentElementIndex
+      );
+    }
   }
 
   handleClick = (ev) => {
@@ -118,14 +115,15 @@ export default class PlotlyMenu extends Component {
   }
 
   render() {
-    const { currentElement, src } = this.state;
+    const { src } = this.state;
+    const { store: { currentElement } } = this.context;
     let inputValue = "";
 
     if (currentElement && defaultPlotlySrc !== currentElement.props.src) {
       inputValue = currentElement.props.src;
     }
 
-    if (src) {
+    if (typeof src !== "undefined") {
       inputValue = src;
     }
 

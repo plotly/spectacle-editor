@@ -1,42 +1,4 @@
-@import '../../../../variables.css';
-
-.canvasElement {
-  position: relative;
-  display: inline-block;
-  cursor: move;
-}
-
-/* Need this to capture all click events on elements */
-.canvasElement::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-
-  z-index: 100;
-  pointer-events: none;
-}
-
 .iframe {
   display: block;
-}
-
-.editor {
-  outline: none;
-  border: none;
-  resize: none;
-}
-
-.selected::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-
-  border: var(--selected-border);
-  border-radius: 2px;
+  pointer-events: none;
 }

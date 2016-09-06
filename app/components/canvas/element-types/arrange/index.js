@@ -30,20 +30,26 @@ class Arrange extends Component {
     this.context.store.setCurrentElementToFrontOrBack();
   }
 
+  onMouseDown = (e) => {
+    e.stopPropagation(); // prevent event from propagating out
+  }
+
   render() {
     const scale = 1 / this.props.scale;
-    const yScale = this.props.height + (17 * scale);
-    const xScale = (this.props.width / 2) - (100 * scale);
 
     const containerStyles = {
-      transform: `scale(${scale})`,
-      transformOrigin: "bottom left",
-      bottom: `${yScale}px`,
-      left: `${xScale}px`
+      transform: `translate(-50%, ${-15 * scale}px) scale(${scale})`,
+      transformOrigin: "bottom",
+      bottom: `100%`,
+      left: `50%`
     };
 
     return (
-      <div className={styles.arrangeContainer} style={containerStyles}>
+      <div
+        className={styles.arrangeContainer}
+        style={containerStyles}
+        onMouseDown={this.onMouseDown}
+      >
         <div className={styles.arrange}>
           <button
             className={styles.arrangeButton}

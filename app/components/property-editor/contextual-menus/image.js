@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import { ipcRenderer } from "electron";
-import { autorun } from "mobx";
+import { observer } from "mobx-react";
 
 import { ElementTypes } from "../../../constants";
 import elements from "../../../elements";
@@ -18,37 +18,15 @@ const normalizeUrl = (url) => {
   return `http://${url}`;
 };
 
+@observer
 export default class ImageMenu extends Component {
   static contextTypes = {
     store: React.PropTypes.object
-  };
-
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      currentElement: null
-    };
   }
 
-  componentDidMount() {
-    autorun(() => {
-      const { currentElement } = this.context.store;
-
-      window.clearTimeout(this.stateTimeout);
-
-      if (!currentElement) {
-        this.stateTimeout = window.setTimeout(() => {
-          this.setState({ currentElement });
-        }, 400);
-
-        return;
-      }
-
-      if (currentElement.type === ElementTypes.IMAGE) {
-        this.setState({ currentElement });
-      }
-    });
+  shouldComponentUpdate() {
+    const { store: { currentElement } } = this.context;
+    return currentElement && currentElement.type === ElementTypes.IMAGE;
   }
 
   onImageUpload = (ev) => {
@@ -106,7 +84,7 @@ export default class ImageMenu extends Component {
   }
 
   render() {
-    const { currentElement } = this.state;
+    const { store: { currentElement } } = this.context;
 
     let srcValue = "";
     let fileName = "";

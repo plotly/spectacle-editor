@@ -5,9 +5,8 @@
 
 .arrangeContainer {
   position: absolute;
-  bottom: calc(100% + 18px);
-  left: calc(50% - 100px);
-  right: 0;
+  left: 50%;
+  bottom: 100%;
   z-index: 100;
 }
 

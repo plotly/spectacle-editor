@@ -1,13 +1,13 @@
 import React, { Component, PropTypes } from "react";
 import { findDOMNode } from "react-dom";
 import { observer } from "mobx-react";
-import { zipWith } from "lodash";
 // Nesting the ElementList here so drag and drop state is controlled by this component
-import { ElementTypes } from "../../constants";
-import { getPointsToSnap, snap } from "../../utils";
+import { ElementTypes, MODES } from "../../constants";
 import ElementList from "../element-list";
 import Elements from "../../elements";
-import CanvasElement from "./canvas-element";
+import { TextElement, ImageElement, PlotlyElement } from "./element-types";
+import SnapLines from "./snap-lines";
+import * as constraints from "./constraints";
 import Slide from "./slide";
 import styles from "./index.css";
 
@@ -19,12 +19,7 @@ class SlideList extends Component {
 
   constructor(props) {
     super(props);
-
-    this.state = {
-      isOverPosition: null,
-      isOverSlide: false,
-      isDragging: false
-    };
+    this.state = { };
   }
 
   componentDidMount() {
@@ -39,80 +34,31 @@ class SlideList extends Component {
     window.removeEventListener("resize", this.resize);
   }
 
-  showGridLine() {}
+  getDefaultPosition = (type) => {
+    const slideElement = findDOMNode(this.slideRef);
+    const { width, height } = this.getDefaultSize(type);
+    let left = (slideElement.clientWidth / 2) - (width / 2);
+    let top = (slideElement.clientHeight / 2) - (height / 2);
+    const { currentSlide } = this.context.store;
+    const positions = currentSlide.children.reduce((positionHashMap, child) => {
+      const key = `${child.props.style.left}x${child.props.style.top}`;
+      positionHashMap[key] = true; // eslint-disable-line no-param-reassign
+      return positionHashMap;
+    }, {});
 
-  changeIsOverState = (newIsOverPosition, dragElementType, isOverSlide) => {
-    if (newIsOverPosition === null) {
-      this.setState({
-        isOverSlide,
-        dragElementType,
-        isOverPosition: null
-      });
-
-      return;
+    while (positions[`${left}x${top}`]) {
+      left += 10;
+      top += 10;
     }
 
-    const element = Elements[dragElementType];
-    const height = this.scale * (element.defaultHeight || element.props.height);
-    const width = this.scale * (element.defaultWidth || element.props.width);
-    const position = newIsOverPosition.concat();
-    const snapOffset = [0, 0];
+    return { left, top };
+  }
 
-    position[0] -= width / 2;
-    position[1] -= height / 2;
-
-    if (!this.gridLines) {
-      this.gridLines = this.context.store.gridLines;
-    }
-
-    // If position is relative to the slide add slide left and top to the values.
-    if (isOverSlide) {
-      position[0] *= this.scale;
-      position[0] += this.context.store.left;
-      position[1] *= this.scale;
-      position[1] += this.context.store.top;
-
-      const createSnapCallback = (isVertical, length) => (line, index) => {
-        if (line === null) {
-          this.refs.slide.hideGridLine(isVertical);
-
-          return;
-        }
-
-        this.refs.slide.showGridLine(line * (1 / this.scale), isVertical);
-
-        // Index 0 = starting edge, 1 = middle, 2 = ending edge
-        snapOffset[isVertical ? 0 : 1] = (length / 2 * index);
-
-        // Set either x or y
-        position[isVertical ? 0 : 1] = line + (
-          isVertical ?
-          // Extra pixel added for slide border
-          this.context.store.left + 1 :
-          this.context.store.top + 1
-        );
-      };
-
-      snap(
-        this.gridLines.horizontal,
-        getPointsToSnap(newIsOverPosition[1] * this.scale, height, height / -2),
-        createSnapCallback(false, height)
-      );
-
-      snap(
-        this.gridLines.vertical,
-        getPointsToSnap(newIsOverPosition[0] * this.scale, width, width / -2),
-        createSnapCallback(true, width)
-      );
-    } else {
-      this.refs.slide.hideGridLine(true);
-      this.refs.slide.hideGridLine(false);
-    }
-
-    this.setState({
-      isOverPosition: zipWith(position, snapOffset, (a, b) => a - b),
-      dragElementType
-    });
+  getDefaultSize = (type) => {
+    const element = Elements[type];
+    const height = element.defaultHeight || element.props.style.height;
+    const width = element.defaultWidth || element.props.style.width;
+    return { width, height };
   }
 
   // Keep a 4:3 ratio with the inner element centered, 30px padding
@@ -144,73 +90,77 @@ class SlideList extends Component {
     });
   }
 
-  dropElement = (elementType, position) => {
-    this.refs.slide.hideGridLine(true);
-    this.refs.slide.hideGridLine(false);
-    this.gridLines = null;
+  handleDragStart = (e, type) => {
+    this.context.store.setCurrentElementIndex(null);
 
-    if (!position) {
-      const slideElement = findDOMNode(this.refs.slide);
+    const scale = this.context.store.scale;
+    const defaultSize = this.getDefaultSize(type);
+    const position = {};
+    const slideOffset = findDOMNode(this.slideRef).getBoundingClientRect();
+    position.left = (e.clientX - slideOffset.left - (defaultSize.width * scale / 2)) / scale;
+    position.top = (e.clientY - slideOffset.top - (defaultSize.height * scale / 2)) / scale;
 
-      const element = Elements[elementType];
-      const height = element.defaultHeight || element.props.height;
-      const width = element.defaultWidth || element.props.width;
+    const rect = {
+      ...position,
+      ...defaultSize
+    };
 
-      let left = (slideElement.clientWidth / 2) - (width / 2);
-      let top = (slideElement.clientHeight / 2) - (height / 2);
-      const { currentSlide } = this.context.store;
-      const positions = currentSlide.children.reduce((positionHashMap, child) => {
-        const key = `${child.props.style.left}x${child.props.style.top}`;
-        positionHashMap[key] = true; // eslint-disable-line no-param-reassign
+    this.setState({
+      startMousePosition: { x: e.clientX, y: e.clientY },
+      startRect: rect,
+      elementType: type,
+      elementRect: rect,
+      snapLines: this.slideRef.getSnapLines(),
+      activeSnapLines: []
+    });
+  }
 
-        return positionHashMap;
-      }, {});
+  handleDrag = (e) => {
+    const size = { ...this.state.startRect };
+    size.left += (e.clientX - this.state.startMousePosition.x) / this.context.store.scale;
+    size.top += (e.clientY - this.state.startMousePosition.y) / this.context.store.scale;
+    const results = constraints.constrainGrid(size, this.state.snapLines, MODES.MOVE);
+    this.setState({
+      elementRect: results.size,
+      activeSnapLines: results.lines
+    });
+  }
 
-      while (positions[`${left}x${top}`]) {
-        left += 10;
-        top += 10;
-      }
+  handleDragStop = () => {
+    this.setState({
+      startMousePosition: null,
+      elementType: null,
+      elementRect: null,
+      snapLines: [],
+      activeSnapLines: []
+    });
+  }
 
-      this.context.store.dropElement(elementType, {
-        style: {
-          whiteSpace: "nowrap",
-          position: "absolute",
-          left,
-          top
-        }
-      });
-
-      return;
-    }
-
-    let [x, y] = this.state.isOverPosition;
-    const { left, top } = this.context.store;
-
-    // Extra pixel added for slide border
-    x -= left + 1;
-    y -= top + 1;
-
-    const upscale = 1 / this.context.store.scale;
-
-    x = x * upscale;
-    y = y * upscale;
-
-    this.context.store.dropElement(elementType, /* props */{
+  handleDrop = (type) => {
+    const rect = this.state.elementRect || this.getDefaultPosition(type);
+    this.context.store.dropElement(type, {
       style: {
         position: "absolute",
-        left: x,
-        top: y,
-        whiteSpace: "nowrap"
+        left: rect.left,
+        top: rect.top
       }
     });
   }
 
-  render() {
-    const {
-      isOverPosition,
-      dragElementType
-    } = this.state;
+  elementFromType = (type) => {
+    switch (type) {
+      case ElementTypes.TEXT:
+        return TextElement;
+      case ElementTypes.IMAGE:
+        return ImageElement;
+      case ElementTypes.PLOTLY:
+        return PlotlyElement;
+      default:
+        return null;
+    }
+  }
 
+  render() {
     const {
       isDraggingElement,
       isDraggingSlide,
@@ -219,17 +169,40 @@ class SlideList extends Component {
       left
      } = this.context.store;
 
-    const PreviewElementType = dragElementType === ElementTypes.PLOTLY ?
-      ElementTypes.PLOTY_PLACEHOLDER_IMAGE :
-      dragElementType;
-
-    const component = Elements[PreviewElementType];
+    let tempComponent = null;
+    if (this.state.elementType) {
+      const Element = this.elementFromType(this.state.elementType);
+      tempComponent = (
+        <div
+          className={styles.isSelected}
+          style={{
+            pointerEvents: "none",
+            position: "absolute",
+            left: this.state.elementRect.left,
+            top: this.state.elementRect.top
+          }}
+        >
+          <Element
+            component={Elements[this.state.elementType]}
+            scale={scale}
+            rect={this.state.elementRect}
+            draggable={false}
+            resizeVertical={false}
+            resizeHorizontal={false}
+            canArrange={false}
+            isSelected
+            isDragging
+            isPlaceholder
+          />
+        </div>
+      );
+    }
 
     return (
       <div
         className={styles.canvasWrapper}
         style={{
-          cursor: isDraggingElement ? "-webkit-grabbing" : "auto",
+          cursor: isDraggingElement ? "move" : "auto",
           pointerEvents: isDraggingSlide ? "none" : "auto"
         }}
       >
@@ -247,23 +220,19 @@ class SlideList extends Component {
             }}
           >
             <Slide
-              ref="slide"
-              isOver={isOverPosition}
+              ref={(slide) => { this.slideRef = slide; }}
               scale={scale}
             />
+            <SnapLines lines={this.state.activeSnapLines} scale={scale} />
+            {tempComponent}
           </div>
-          {isOverPosition &&
-            <CanvasElement
-              mousePosition={isOverPosition}
-              scale={scale}
-              component={component}
-            />
-          }
         </div>
         <ElementList
           scale={scale}
-          onIsOverCanvasChange={this.changeIsOverState}
-          onDropElement={this.dropElement}
+          onDragStart={this.handleDragStart}
+          onDrag={this.handleDrag}
+          onDragStop={this.handleDragStop}
+          onDrop={this.handleDrop}
         />
       </div>
     );
