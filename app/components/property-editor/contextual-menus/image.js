@@ -7,6 +7,7 @@ import elements from "../../../elements";
 import { IMAGE } from "../../../assets/icons";
 import commonStyles from "../index.css";
 import styles from "./image.css";
+import notificationSystem from "../../../notifications";
 
 const defaultImageSource = elements[ElementTypes.IMAGE].props.src;
 
@@ -33,23 +34,41 @@ export default class ImageMenu extends Component {
     const imageObj = ev.target.files && ev.target.files[0];
 
     if (imageObj) {
-      const { path, type, name } = imageObj;
+      const { path, type, name, size } = imageObj;
 
-      ipcRenderer.once("image-encoded", (event, encodedImageString) => {
-        if (!encodedImageString) {
-          this.setState({ uploadError: true });
-        }
+      if (size <= 3000000) {
+        ipcRenderer.once("image-encoded", (event, encodedImageString) => {
+          if (!encodedImageString) {
+            notificationSystem.addNotification({
+              message: "Error loading file",
+              level: "error"
+            });
 
-        this.context.store.updateElementProps({
-          src: `data:${type};base64, ${encodedImageString}`,
-          imageName: name,
-          style: {
-            opacity: 1
+            return;
           }
-        });
-      });
 
-      ipcRenderer.send("encode-image", path);
+          const imgSrc = `data:${type};base64, ${encodedImageString}`;
+
+          this.getScaledHeightAndWidth(imgSrc, ({ height, width, src }) => {
+            this.context.store.updateElementProps({
+              src,
+              imageName: name,
+              height,
+              width,
+              style: {
+                opacity: 1
+              }
+            });
+          });
+        });
+
+        ipcRenderer.send("encode-image", path);
+      } else {
+        notificationSystem.addNotification({
+          message: "Error: images must be smaller than 3MB",
+          level: "error"
+        });
+      }
     }
   }
 
@@ -57,12 +76,16 @@ export default class ImageMenu extends Component {
     const imageSrc = ev.target.value;
 
     if (imageSrc) {
-      this.context.store.updateElementProps({
-        src: imageSrc,
-        imageName: null,
-        style: {
-          opacity: 1
-        }
+      this.getScaledHeightAndWidth(imageSrc, ({ src, height, width }) => {
+        this.context.store.updateElementProps({
+          src,
+          imageName: null,
+          height,
+          width,
+          style: {
+            opacity: 1
+          }
+        });
       });
     }
   }
@@ -81,6 +104,24 @@ export default class ImageMenu extends Component {
         src: normalizedUrl
       });
     }
+  }
+
+  getScaledHeightAndWidth(src, cb) {
+    const imageElement = new Image();
+    imageElement.src = src;
+
+    imageElement.addEventListener("load", () => {
+      const { props } = this.context.store.currentElement;
+      const { height, width } = imageElement;
+      const aspectRatio = Math.min(height, width) / Math.max(height, width);
+
+      cb({
+        src,
+        height: height > width ? props.height : props.width * aspectRatio,
+        width: height < width ? props.width : props.height * aspectRatio,
+        aspectRatio
+      });
+    });
   }
 
   render() {
