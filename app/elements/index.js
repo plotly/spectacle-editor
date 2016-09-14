@@ -45,7 +45,10 @@ elements[ElementTypes.TEXT] = {
     isQuote: false,
     size: 4,
     listType: null,
-    style: {}
+    style: {
+      wordBreak: "break-word"
+    }
+
   },
   children: null
 };
