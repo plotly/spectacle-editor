@@ -31,10 +31,12 @@ class Slide extends Component {
 
   componentDidMount() {
     document.addEventListener("keydown", this.handleKeyDown);
+    document.addEventListener("keyup", this.handleKeyUp);
   }
 
   componentWillUnmount() {
     document.removeEventListener("keydown", this.handleKeyDown);
+    document.removeEventListener("keyup", this.handleKeyUp);
   }
 
   getSnapLines = () => {
@@ -138,8 +140,6 @@ class Slide extends Component {
     if (this.isNudging) {
       this.isNudging = false;
       this.handleDragStop(MODES.MOVE);
-      this.handleKeyUp = null;
-      document.removeEventListener("keyup", this.handleKeyUp);
     }
   }
 
@@ -149,7 +149,6 @@ class Slide extends Component {
 
     const currentElement = this.context.store.currentElement;
     if ((e.which === 37 || e.which === 39 || e.which === 38 || e.which === 40) && currentElement) {
-      document.addEventListener("keyup", this.handleKeyUp);
       const size = this.state.intermediarySize || this.elementRefs[currentElement.id].getSize();
       const delta = e.shiftKey ? 10 : 1;
       if (e.which === 37) { size.left -= delta; }
@@ -177,7 +176,6 @@ class Slide extends Component {
 
   handleKeyUp = () => {
     this.stopNudging();
-    document.removeEventListener("keyup", this.handleKeyUp);
   }
 
   elementFromType = (type) => {
