@@ -32,6 +32,7 @@ export default class ImageMenu extends Component {
 
   onImageUpload = (ev) => {
     const imageObj = ev.target.files && ev.target.files[0];
+    const { currentElementIndex, currentSlideIndex } = this.context.store;
 
     if (imageObj) {
       const { path, type, name, size } = imageObj;
@@ -48,18 +49,7 @@ export default class ImageMenu extends Component {
           }
 
           const imgSrc = `data:${type};base64, ${encodedImageString}`;
-
-          this.getScaledHeightAndWidth(imgSrc, ({ height, width, src }) => {
-            this.context.store.updateElementProps({
-              src,
-              imageName: name,
-              height,
-              width,
-              style: {
-                opacity: 1
-              }
-            });
-          });
+          this.updateImage(imgSrc, currentSlideIndex, currentElementIndex, name);
         });
 
         ipcRenderer.send("encode-image", path);
@@ -73,24 +63,15 @@ export default class ImageMenu extends Component {
   }
 
   onSourceChange = (ev) => {
+    const { currentElementIndex, currentSlideIndex } = this.context.store;
     const imageSrc = ev.target.value;
-
     if (imageSrc) {
-      this.getScaledHeightAndWidth(imageSrc, ({ src, height, width }) => {
-        this.context.store.updateElementProps({
-          src,
-          imageName: null,
-          height,
-          width,
-          style: {
-            opacity: 1
-          }
-        });
-      });
+      this.updateImage(imageSrc, currentElementIndex, currentSlideIndex);
     }
   }
 
   onSourceBlur = (ev) => {
+    const { currentElementIndex, currentSlideIndex } = this.context.store;
     const imageSrc = ev.target.value;
 
     if (!imageSrc) {
@@ -100,9 +81,7 @@ export default class ImageMenu extends Component {
     const normalizedUrl = normalizeUrl(imageSrc);
 
     if (imageSrc !== normalizedUrl) {
-      this.context.store.updateElementProps({
-        src: normalizedUrl
-      });
+      this.updateImage(normalizedUrl, currentSlideIndex, currentElementIndex);
     }
   }
 
@@ -110,17 +89,37 @@ export default class ImageMenu extends Component {
     const imageElement = new Image();
     imageElement.src = src;
 
+    const { props } = this.context.store.currentElement;
+    const currentWidth = props.style.width;
+    const currentHeight = props.style.height;
+
     imageElement.addEventListener("load", () => {
-      const { props } = this.context.store.currentElement;
       const { height, width } = imageElement;
       const aspectRatio = Math.min(height, width) / Math.max(height, width);
 
       cb({
         src,
-        height: height > width ? props.height : props.width * aspectRatio,
-        width: height < width ? props.width : props.height * aspectRatio,
+        height: height > width ? currentHeight : currentWidth * aspectRatio,
+        width: height < width ? currentWidth : currentHeight * aspectRatio,
         aspectRatio
       });
+    });
+  }
+
+  updateImage(imgSrc, slideIndex, elementIndex, name) {
+    this.getScaledHeightAndWidth(imgSrc, ({ height, width, src }) => {
+      const nextProps = {
+        src,
+        style: {
+          opacity: 1,
+          height,
+          width
+        }
+      };
+      if (typeof name === "string") {
+        nextProps.imageName = name;
+      }
+      this.context.store.updateElementProps(nextProps, slideIndex, elementIndex);
     });
   }
 
