@@ -81,12 +81,6 @@ class ElementItem extends Component {
       this.props.onDrag(mousePosition);
     }
 
-    // this.props.onIsOverCanvasChange(
-    //   newOverCanvasPosition,
-    //   this.props.elementType,
-    //   id === "slide"
-    // );
-
     this.setState({
       delta: newDelta,
       // TODO: Clean up these two properties
