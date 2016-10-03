@@ -144,7 +144,7 @@ class PlotlyForm extends Component {
                 value={this.state.domain}
                 onChange={this.handleDomainChange}
                 onBlur={this.handleDomainBlur}
-                placeholder="teamdomain.plot.ly"
+                placeholder="https://plotly.your-company.com"
               />
 
             {this.state.loadingDomain &&
