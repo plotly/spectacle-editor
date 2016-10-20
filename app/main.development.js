@@ -306,7 +306,7 @@ app.on("ready", () => {
     template = [{
       label: "Electron",
       submenu: [{
-        label: "About ElectronReact",
+        label: "About Spectacle Editor",
         selector: "orderFrontStandardAboutPanel:"
       }, {
         type: "separator"
@@ -316,7 +316,7 @@ app.on("ready", () => {
       }, {
         type: "separator"
       }, {
-        label: "Hide ElectronReact",
+        label: "Hide Spectacle Editor",
         accelerator: "Command+H",
         selector: "hide:"
       }, {
