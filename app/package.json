@@ -1,6 +1,6 @@
 {
   "name": "spectacle-editor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "productName": "Spectacle Editor",
   "description": "Drag and drop Spectacle editor",
   "main": "main.js",

@@ -1,5 +1,9 @@
 @import '../../../variables.css';
 
+.wrapper {
+  position: relative;
+}
+
 .inputBox {
   border: 1px solid var(--secondary-border-color);
   border-radius: 4px;
@@ -10,4 +14,12 @@
   line-height: 1.8;
   padding-left: 7px;
   width: 180px;
+  background-position: right center;
+}
+
+.errorIcon {
+  position: absolute;
+  right: 12px;
+  margin-top: -27px;
+  fill: var(--warning);
 }

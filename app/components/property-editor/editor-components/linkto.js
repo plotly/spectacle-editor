@@ -1,4 +1,5 @@
 import React, { Component } from "react";
+import { ERROR } from "../../../assets/icons";
 import styles from "./linkto.css";
 
 const normalizeUrl = (url) => {
@@ -18,44 +19,66 @@ export default class LinkTo extends Component {
     currentElement: React.PropTypes.object
   }
 
+  constructor(props) {
+    super(props);
+    this.state = {
+      value: props.currentElement.props.href || "",
+      invalid: false
+    };
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if (nextProps.currentElement && nextProps.currentElement.props) {
+      if (nextProps.currentElement.props.href !== this.state.value) {
+        this.setState({ value: nextProps.currentElement.props.href || "", invalid: false });
+      }
+    }
+  }
+
   onUrlChange = (ev) => {
     const url = ev.target.value;
 
-    const { style } = this.context.store.currentElement.props;
-
-    if (url) {
-      this.context.store.updateElementProps({
-        href: url,
-        style: { ...style, textDecoration: "underline" }
-      });
-
-      return;
-    }
-
-    this.context.store.updateElementProps({
-      href: null,
-      style: { ...style, textDecoration: "none" }
+    this.setState({
+      value: url,
+      invalid: /^javascript:/i.test(url)
     });
   }
 
   onBlurUrl = () => {
-    if (this.props.currentElement.props.href) {
-      const formattedUrl = normalizeUrl(this.props.currentElement.props.href);
-
-      this.context.store.updateElementProps({ href: formattedUrl });
+    let href;
+    if (this.state.invalid || !this.state.value || this.state.value.length === 0) {
+      href = null;
+    } else {
+      href = normalizeUrl(this.state.value);
     }
+
+    const propUpdates = { href };
+    const { style } = this.context.store.currentElement.props;
+    if (style) {
+      propUpdates.style = { ...style, textDecoration: "none" };
+    }
+
+    this.context.store.updateElementProps(propUpdates);
   }
 
   render() {
     return (
-      <input
-        className={styles.inputBox}
-        placeholder="http://"
-        type="text"
-        onChange={this.onUrlChange}
-        onBlur={this.onBlurUrl}
-        value={this.props.currentElement.props.href || ""}
-      />
+      <div className={styles.wrapper}>
+        <input
+          className={styles.inputBox}
+          placeholder="http://"
+          type="text"
+          onChange={this.onUrlChange}
+          onBlur={this.onBlurUrl}
+          value={this.state.value || ""}
+        />
+        {this.state.invalid &&
+          <div
+            className={styles.errorIcon}
+            title="Invalid url"
+            dangerouslySetInnerHTML={{ __html: ERROR }}
+          />}
+      </div>
     );
   }
 }
