@@ -40,7 +40,7 @@ class LoginMenu extends Component {
             onClick={this.onClickLogin}
           >
             <i className={"icon ion-person"}></i>
-            <p className={styles.signInCopy}>Sign in to Plot.ly</p>
+            <p className={styles.signInCopy}>Sign in to Chart Studio</p>
           </button>
         }
         {!user && loginModalVisible && <LoginModal onClose={this.onCloseModal} />}

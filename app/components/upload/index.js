@@ -197,7 +197,7 @@ class UploadButton extends Component {
         {this.renderButtons(fid, presInfo, user)}
         {!fid && user &&
           <div className={`${styles.flyout} ${uploadFlyoutVisible && styles.visible}`}>
-            <p className={styles.flyoutHeading}>Upload presentation to plot.ly</p>
+            <p className={styles.flyoutHeading}>Upload presentation to Chart Studio</p>
             {this.renderError(publishError)}
             <form>
               <label className={styles.flyoutLabel}>
