@@ -10,26 +10,28 @@ const defaultPlotlySrc = elements[ElementTypes.PLOTLY].props.src;
 const normalizeUrl = (url) => {
   let urlWithEmbedAndQuery = url;
 
-  if (urlWithEmbedAndQuery.indexOf(".embed") === -1) {
-    const queryIndex = urlWithEmbedAndQuery.indexOf("?");
+  if (urlWithEmbedAndQuery.indexOf("~") !== -1) {
+    if (urlWithEmbedAndQuery.indexOf(".embed") === -1) {
+      const queryIndex = urlWithEmbedAndQuery.indexOf("?");
 
-    if (queryIndex === -1) {
-      urlWithEmbedAndQuery =
-        /\/$/.test(urlWithEmbedAndQuery) ?
-         `${urlWithEmbedAndQuery.slice(0, -1)}.embed`
-         :
-         `${urlWithEmbedAndQuery}.embed`;
-    } else {
-      urlWithEmbedAndQuery =
-      `${urlWithEmbedAndQuery.slice(0, queryIndex)}.embed${urlWithEmbedAndQuery.slice(queryIndex)}`;
+      if (queryIndex === -1) {
+        urlWithEmbedAndQuery =
+          /\/$/.test(urlWithEmbedAndQuery) ?
+          `${urlWithEmbedAndQuery.slice(0, -1)}.embed`
+          :
+          `${urlWithEmbedAndQuery}.embed`;
+      } else {
+        urlWithEmbedAndQuery =
+        `${urlWithEmbedAndQuery.slice(0, queryIndex)}.embed${urlWithEmbedAndQuery.slice(queryIndex)}`;
+      }
     }
-  }
 
-  if (urlWithEmbedAndQuery.indexOf("link=") === -1) {
-    urlWithEmbedAndQuery = urlWithEmbedAndQuery.indexOf(".embed?") > -1 ?
-    `${urlWithEmbedAndQuery}&link=false`
-    :
-    `${urlWithEmbedAndQuery}?link=false`;
+    if (urlWithEmbedAndQuery.indexOf("link=") === -1) {
+      urlWithEmbedAndQuery = urlWithEmbedAndQuery.indexOf(".embed?") > -1 ?
+      `${urlWithEmbedAndQuery}&link=false`
+      :
+      `${urlWithEmbedAndQuery}?link=false`;
+    }
   }
 
   if (urlWithEmbedAndQuery.indexOf("http://") === 0 || urlWithEmbedAndQuery.indexOf("https://") === 0) {
@@ -131,7 +133,7 @@ export default class PlotlyMenu extends Component {
       <div className={commonStyles.wrapper}>
         {currentElement && (
           <div>
-            <h3 className={commonStyles.heading}>Plotly</h3>
+            <h3 className={commonStyles.heading}>Plotly & Dash</h3>
             <hr className={commonStyles.hr} />
             <p className={commonStyles.subHeading}>
               Embed Url
