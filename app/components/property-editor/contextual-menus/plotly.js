@@ -21,8 +21,9 @@ const normalizeUrl = (url) => {
           :
           `${urlWithEmbedAndQuery}.embed`;
       } else {
-        urlWithEmbedAndQuery =
-        `${urlWithEmbedAndQuery.slice(0, queryIndex)}.embed${urlWithEmbedAndQuery.slice(queryIndex)}`;
+        urlWithEmbedAndQuery = urlWithEmbedAndQuery.slice(0, queryIndex);
+        urlWithEmbedAndQuery += ".embed";
+        urlWithEmbedAndQuery += urlWithEmbedAndQuery.slice(queryIndex);
       }
     }
 

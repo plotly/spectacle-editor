@@ -108,7 +108,7 @@ class UserMenu extends Component {
 
         <div className={styles.presentations}>
           <p className={styles.presentationsHeading}>
-            <span className={styles.fancy}>Your Plot.ly Presentations</span>
+            <span className={styles.fancy}>Your Chart Studio Presentations</span>
           </p>
           {this.state.loading && <Spinner className={styles.spinner} />}
           {this.state.presError && <h4>{this.state.presError}</h4>}
