@@ -136,7 +136,7 @@ class PlotlyForm extends Component {
             }}
           >
             <label className={commonStyles.label}>
-              Enter your team’s plot.ly domain
+              Your Chart Studio Enterprise domain
               <input
                 className={commonStyles.input}
                 type="text"
@@ -199,10 +199,10 @@ class PlotlyForm extends Component {
         </div>
         <div className={commonStyles.signUp}>
           <p className={commonStyles.signUpHeading}>
-            Don’t have a plot.ly account?
+            Don’t have a Chart Studio Enterprise account?
           </p>
           <a href="http://plot.ly" onClick={this.onClickCreateAccount}>
-            Create an account on plot.ly
+            Create an account now
           </a>
         </div>
       </div>

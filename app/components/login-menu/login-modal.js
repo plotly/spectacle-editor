@@ -52,13 +52,13 @@ class LoginMenu extends Component {
                 className={plotlyClass}
                 onClick={this.onClickTab.bind(this, false)}
               >
-                Plot.ly
+                Chart Studio Cloud
               </button>
               <button
                 className={onPremiseClass}
                 onClick={this.onClickTab.bind(this, true)}
               >
-                On-Premise
+                Chart Studio Enterprise
               </button>
             </div>
           </header>

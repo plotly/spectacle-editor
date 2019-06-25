@@ -140,10 +140,10 @@ class PlotlyForm extends Component {
         </div>
         <div className={commonStyles.signUp}>
           <p className={commonStyles.signUpHeading}>
-            Don’t have a plot.ly account?
+            Don’t have a Chart Studio Cloud account?
           </p>
           <a href="http://plot.ly" onClick={this.onClickCreateAccount}>
-            Create an account on plot.ly
+            Create an account now
           </a>
         </div>
       </div>
