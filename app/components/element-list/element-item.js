@@ -254,7 +254,7 @@ class ElementItem extends Component {
         >
           <Icon name={elementType} className={styles.icon} />
           <h4>
-            {elementType}
+            {elementType.replace("Plotly", "Plotly & Dash")}
           </h4>
         </div>
       </div>

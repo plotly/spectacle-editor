@@ -102,8 +102,10 @@ export default class PlotlyMenu extends Component {
 
     if (typeof this.currentSlideIndex !== "undefined" &&
         typeof this.currentElementIndex !== "undefined") {
+      const src = normalizeUrl(nextValue);
+      const scrolling = src.indexOf("~") === -1 ? "yes" : "no";
       this.context.store.updateElementProps(
-        { src: normalizeUrl(nextValue) },
+        { src, scrolling },
         this.currentSlideIndex,
         this.currentElementIndex
       );

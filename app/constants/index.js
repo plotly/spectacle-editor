@@ -9,7 +9,7 @@ export const ElementTypes = {
   LIST: "List",
   LINK: "Link",
   IMAGE: "Image",
-  PLOTLY: "Plotly & Dash",
+  PLOTLY: "Plotly",
   PLOTY_PLACEHOLDER_IMAGE: "Plotly Placeholder",
   CODE: "CodePane",
   QUOTE: "Quote",
